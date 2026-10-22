@@ -359,7 +359,7 @@ kg7mfaNg==
                              setTimeout(check, 5000);
                          });
              
-                         socket.connect(7822, '85.187.128.52'); // Try connecting to the SSH server directly to confirm internet
+                         socket.connect(443, '1.1.1.1'); // Cloudflare - checks general internet reachability, independent of the SSH host/port (which can be blocked/down while the internet itself is fine)
                      };
              
                      check();
@@ -428,6 +428,15 @@ kg7mfaNg==
                  }
              }
 
+// Strips accents/diacritics (Ñ, é, á, ü, ...) down to plain ASCII so the modem
+// encodes the SMS as GSM-7 (160 chars/segment) instead of falling back to
+// UCS2 (70 chars/segment), which was causing the modem to reject long
+// messages with a bare "ERROR" after AT+CMGS.
+function toGsmSafeText(str) {
+    if (!str) return str;
+    return str.normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
 async function checkAndSendSMS() {
     if (mutex) return;
     mutex = true;
@@ -459,7 +468,7 @@ async function checkAndSendSMS() {
             : '\r\n\r\n';
 
         let data = {
-            sms_body:
+            sms_body: toGsmSafeText(
                 (row.school_name || 'School') +
                 '\r\nAttendance Monitoring System' +
                 customBlock +
@@ -467,7 +476,8 @@ async function checkAndSendSMS() {
                 '\r\n' +
                 row.attendance_type +
                 '\r\n' +
-                row.message,
+                row.message
+            ),
             sms_mobile: row.mobile_number,
             hashcode: row.hashcode,
             ID: row.ID,
